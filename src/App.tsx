@@ -95,6 +95,8 @@ function App() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [formError, setFormError] = useState('');
+  const [inventoryQuery, setInventoryQuery] = useState('');
+  const [inventoryMessage, setInventoryMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -119,6 +121,34 @@ function App() {
     if (auth.isSignedIn()) void auth.getUser().then(value => setUser(value)).catch(() => setUser(null));
   }, []);
   const rows = useMemo(() => mergeRows(saved), [saved]);
+  useEffect(() => {
+    const number = inventoryQuery.trim();
+    if (!formOpen || !number) { setInventoryMessage(''); return; }
+    if (!/^\d{2}-\d{4,8}$/.test(number)) { setInventoryMessage('กรอกเลข Inventory เช่น 69-05508'); return; }
+    let active = true;
+    const snapshot = { ...form };
+    setInventoryMessage('กำลังค้นหา Inventory Master...');
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await api.get('/api/inventory-lookup?number=' + encodeURIComponent(number));
+        if (!active) return;
+        if (!result.data.found) { setInventoryMessage('ไม่พบเลข Inventory'); return; }
+        setForm(current => {
+          if (current.inventory_no.trim() !== number) return current;
+          const next = { ...current };
+          for (const [key, value] of Object.entries(result.data.fields)) {
+            const fieldName = key as keyof FormData;
+            if (fieldName in next && current[fieldName] === snapshot[fieldName]) next[fieldName] = value == null ? '' : String(value);
+          }
+          return next;
+        });
+        setInventoryMessage('ดึงข้อมูลจาก Inventory Master จริงแล้ว (' + number + ') · สามารถปรับข้อมูลก่อนบันทึกได้');
+      } catch (cause) {
+        if (active) setInventoryMessage((cause as {response?:{data?:{error?:string}}}).response?.data?.error || 'เชื่อมต่อ Inventory ไม่สำเร็จ สามารถกรอกข้อมูลเองได้');
+      }
+    }, 500);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [inventoryQuery, formOpen]);
   const filtered = useMemo(
     () => rows.filter(r => Object.values(r).join(' ').toLocaleLowerCase().includes(q.trim().toLocaleLowerCase())),
     [q, rows]
@@ -145,6 +175,7 @@ function App() {
   async function startAdd() {
     if (!await ensureSignedIn()) return;
     setEditing(null);
+    setInventoryQuery(''); setInventoryMessage('');
     setForm(emptyForm());
     setFormError('');
     setMessage('');
@@ -153,6 +184,7 @@ function App() {
   async function startEdit(r: Row) {
     if (!await ensureSignedIn()) return;
     setEditing(r);
+    setInventoryQuery(''); setInventoryMessage('');
     setForm(formFromRow(r));
     setFormError('');
     setMessage('');
@@ -175,6 +207,7 @@ function App() {
   }
   function field(key: keyof FormData, value: string) {
     setForm(old => ({ ...old, [key]: value }));
+    if (key === 'inventory_no') setInventoryQuery(value);
   }
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -302,7 +335,7 @@ function App() {
                 <label className='wide'>เรื่อง *<textarea required rows={3} value={form.subject} onChange={e => field('subject', e.target.value)} placeholder='ชื่อรายการ / เรื่องประกาศ' maxLength={1000} /></label>
                 <label>วงเงิน (บาท)<input type='number' min='0' step='0.01' value={form.amount} onChange={e => field('amount', e.target.value)} placeholder='0.00' /></label>
                 <label>ปีงบประมาณ (พ.ศ.)<input type='number' min='2400' max='2700' value={form.budget_year} onChange={e => field('budget_year', e.target.value)} placeholder='2570' /></label>
-                <label>เลข Inventory<input value={form.inventory_no} onChange={e => field('inventory_no', e.target.value)} placeholder='เช่น 69-05132' maxLength={100} /></label>
+                <label>เลข Inventory<input value={form.inventory_no} onChange={e => field('inventory_no', e.target.value)} placeholder='เช่น 69-05132' maxLength={100} />{inventoryMessage && <span role='status'>{inventoryMessage} · กรอกเองได้</span>}</label>
                 <label>วันที่รับ Inventory<input type='date' value={form.inventory_date} onChange={e => field('inventory_date', e.target.value)} /></label>
                 <label>หน่วยงาน<input value={form.department} onChange={e => field('department', e.target.value)} placeholder='หน่วยงานเจ้าของเรื่อง' maxLength={200} /></label>
                 <label>เลขโครงการ<input value={form.project_no} onChange={e => field('project_no', e.target.value)} placeholder='เลขที่โครงการ' maxLength={100} /></label>

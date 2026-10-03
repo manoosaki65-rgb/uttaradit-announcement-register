@@ -1,4 +1,5 @@
 import express from 'express';
+import {lookupInventory} from './inventory-lookup.js';
 import {list,all,insert,update,remove,close,fields} from './database.js';
 import {randomUUID,createHmac,timingSafeEqual} from 'node:crypto';
 if(!process.env.EDITOR_PASSWORD || !process.env.SESSION_SECRET) throw new Error('Missing editor configuration');
@@ -12,6 +13,11 @@ app.get('/api/session',(req,res)=>res.json({user:signedIn(req)?{userId:'test-edi
 app.post('/api/session',(req,res)=>{const ip=req.ip;const now=Date.now();const previous=attempts.get(ip);const a=previous&&previous.until>now?previous:{count:0,until:now+600000};if(a.count>=10)return res.status(429).json({error:'ลองใหม่ในอีก 10 นาที'});if(!equal(req.body?.password,process.env.EDITOR_PASSWORD)){a.count++;attempts.set(ip,a);return res.status(401).json({error:'รหัสไม่ถูกต้อง'});}attempts.delete(ip);const expiry=String(now+8*3600000);res.set('Set-Cookie','editor='+expiry+'.'+sign(expiry)+'; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'+(process.env.NODE_ENV==='production'?'; Secure':''));res.json({user:{userId:'test-editor',name:'ผู้ทดสอบ Render'}});});
 app.delete('/api/session',(req,res)=>{res.set('Set-Cookie','editor=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');res.json({ok:true});});
 app.get('/api/health',(req,res)=>res.json({ok:true,environment:'sample-test',storage:'sqlite-ephemeral',count:list().length}));
+app.get('/api/inventory-lookup',async(req,res)=>{
+ if(!signedIn(req))return res.status(401).json({error:'กรุณาเข้าสู่ระบบเพื่อค้นหา Inventory'});
+ try{res.json(await lookupInventory(String(req.query.number||'').trim()));}
+ catch(e){res.status(e.status||502).json({error:e.status?e.message:'เชื่อมต่อ Inventory ไม่สำเร็จ กรุณากรอกข้อมูลเองหรือลองใหม่'});}
+});
 function parse(b){const r={};for(const f of fields)r[f]=b?.[f]??null;
  for(const f of fields.filter(x=>!['amount','budget_year'].includes(x))){if(r[f]!==null&&typeof r[f]!=='string')throw Error('ข้อมูลต้องเป็นข้อความ');r[f]=r[f]?.trim()||null;if(r[f]?.length>1000)throw Error('ข้อความยาวเกินกำหนด');}
  r.announcement_no=r.announcement_no||'';if(r.announcement_no&&!/^\d{1,12}$/.test(r.announcement_no))throw Error('เลขประกาศต้องเป็นตัวเลข');
