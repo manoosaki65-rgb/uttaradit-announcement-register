@@ -12,7 +12,7 @@ const attempts=new Map();
 app.get('/api/session',(req,res)=>res.json({user:signedIn(req)?{userId:'test-editor',name:'ผู้ทดสอบ Render'}:null}));
 app.post('/api/session',(req,res)=>{const ip=req.ip;const now=Date.now();const previous=attempts.get(ip);const a=previous&&previous.until>now?previous:{count:0,until:now+600000};if(a.count>=10)return res.status(429).json({error:'ลองใหม่ในอีก 10 นาที'});if(!equal(req.body?.password,process.env.EDITOR_PASSWORD)){a.count++;attempts.set(ip,a);return res.status(401).json({error:'รหัสไม่ถูกต้อง'});}attempts.delete(ip);const expiry=String(now+8*3600000);res.set('Set-Cookie','editor='+expiry+'.'+sign(expiry)+'; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'+(process.env.NODE_ENV==='production'?'; Secure':''));res.json({user:{userId:'test-editor',name:'ผู้ทดสอบ Render'}});});
 app.delete('/api/session',(req,res)=>{res.set('Set-Cookie','editor=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');res.json({ok:true});});
-app.get('/api/health',(req,res)=>res.json({ok:true,environment:'sample-test',storage:'sqlite-ephemeral',count:list().length}));
+app.get('/api/health',async(req,res)=>res.json({ok:true,environment:'sample-test',storage:'neon-postgresql',count:(await list()).length}));
 app.get('/api/inventory-lookup',async(req,res)=>{
  if(!signedIn(req))return res.status(401).json({error:'กรุณาเข้าสู่ระบบเพื่อค้นหา Inventory'});
  try{res.json(await lookupInventory(String(req.query.number||'').trim()));}
@@ -26,16 +26,17 @@ function parse(b){const r={};for(const f of fields)r[f]=b?.[f]??null;
  if(r.announcement_no&&!r.announcement_date)throw Error('กรุณาระบุวันที่ประกาศ');
  for(const f of ['amount','budget_year']){r[f]=r[f]===null||r[f]===''?null:Number(r[f]);if(r[f]!==null&&(!Number.isFinite(r[f])||r[f]<0))throw Error('ตัวเลขไม่ถูกต้อง');}
  if(r.amount>999999999999)throw Error('วงเงินเกินกำหนด');if(r.budget_year!==null&&(!Number.isInteger(r.budget_year)||r.budget_year<2400||r.budget_year>2700))throw Error('ปีงบประมาณไม่ถูกต้อง');return r;}
-app.get('/api/announcements',(req,res)=>res.json({items:list(),nextToken:null}));
-app.get('/api/export',(req,res)=>{res.set('Content-Disposition','attachment; filename=announcement-test-backup.json');res.json({environment:'sample-test',exported_at:new Date().toISOString(),items:all()});});
+app.get('/api/announcements',async(req,res)=>res.json({items:await list(),nextToken:null}));
+app.get('/api/export',async(req,res)=>{res.set('Content-Disposition','attachment; filename=announcement-test-backup.json');res.json({environment:'sample-test',exported_at:new Date().toISOString(),items:await all()});});
 app.use('/api/announcements',(req,res,next)=>{if(!signedIn(req))return res.status(401).json({error:'กรุณาเข้าสู่ระบบเพื่อเพิ่มหรือแก้ไข'});next();});
-app.post('/api/announcements',(req,res)=>{let r;try{r=parse(req.body);}catch(e){return res.status(400).json({error:e.message});}res.status(201).json({item:insert(r)});});
-app.put('/api/announcements/:id',(req,res)=>{let r;try{r=parse(req.body);}catch(e){return res.status(400).json({error:e.message});}const item=update(req.params.id,r);if(!item)return res.status(404).json({error:'ไม่พบรายการ'});res.json({item});});
-app.delete('/api/announcements/:id',(req,res)=>{if(!remove(req.params.id))return res.status(404).json({error:'ไม่พบรายการ'});res.json({ok:true});});
+app.post('/api/announcements',async(req,res)=>{let r;try{r=parse(req.body);}catch(e){return res.status(400).json({error:e.message});}res.status(201).json({item:await insert(r)});});
+app.put('/api/announcements/:id',async(req,res)=>{let r;try{r=parse(req.body);}catch(e){return res.status(400).json({error:e.message});}const item=await update(req.params.id,r);if(!item)return res.status(404).json({error:'ไม่พบรายการ'});res.json({item});});
+app.delete('/api/announcements/:id',async(req,res)=>{if(!await remove(req.params.id))return res.status(404).json({error:'ไม่พบรายการ'});res.json({ok:true});});
 app.use('/api',(req,res)=>res.status(404).json({error:'ไม่พบเส้นทาง'}));
 app.use(express.static('dist'));
-app.use((err,req,res,next)=>{console.error(err.code||err.message);res.status(err.code==='ERR_SQLITE_ERROR' && err.message.includes('UNIQUE constraint')?409:err.code==='22P02'?400:500).json({error:err.code==='ERR_SQLITE_ERROR' && err.message.includes('UNIQUE constraint')?'เลขประกาศซ้ำในปีเดียวกัน':'ไม่สามารถบันทึกข้อมูลได้'});});
+app.use((err,req,res,next)=>{console.error(err.code||err.message);res.status((err.code||err.cause?.code)==='23505'?409:err.code==='22P02'?400:500).json({error:(err.code||err.cause?.code)==='23505'?'เลขประกาศซ้ำในปีเดียวกัน':'ไม่สามารถบันทึกข้อมูลได้'});});
 const server=app.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('Announcement test service listening'));
-process.on('SIGTERM',()=>server.close(()=>{close();process.exit(0);}));
+process.on('SIGTERM',()=>server.close(()=>{close().finally(()=>process.exit(0));}));
+
 
 

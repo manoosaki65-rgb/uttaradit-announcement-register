@@ -1,20 +1,17 @@
-import {DatabaseSync} from 'node:sqlite';
+import pg from 'pg';
+import {drizzle} from 'drizzle-orm/node-postgres';
+import {sql} from 'drizzle-orm';
 import {randomUUID} from 'node:crypto';
-const db=new DatabaseSync(process.env.SQLITE_PATH || 'announcement-test.sqlite');
-db.exec("PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS announcements(id TEXT PRIMARY KEY,announcement_no TEXT NOT NULL DEFAULT '',announcement_date TEXT,subject TEXT NOT NULL,amount REAL,budget_year INTEGER,project_no TEXT,note TEXT,inventory_no TEXT,inventory_date TEXT,department TEXT,status TEXT,deleted INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP); CREATE UNIQUE INDEX IF NOT EXISTS number_year ON announcements(announcement_no,substr(announcement_date,1,4)) WHERE deleted=0 AND announcement_no NOT IN ('','000','001'); CREATE TABLE IF NOT EXISTS app_migrations(name TEXT PRIMARY KEY);");
+if(!process.env.DATABASE_URL) throw Error('DATABASE_URL is required; SQLite fallback is disabled');
+const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,max:5,connectionTimeoutMillis:15000,idleTimeoutMillis:30000});
+pool.on('error',e=>console.error('Database connection error',e.code));
+const db=drizzle(pool);
 export const fields=['announcement_no','announcement_date','subject','amount','budget_year','project_no','note','inventory_no','inventory_date','department','status'];
-const row=r=>r?{...r,deleted:Boolean(r.deleted)}:null;
-export const list=()=>db.prepare("SELECT *, rowid AS created_order FROM announcements WHERE deleted=0 ORDER BY CAST(announcement_no AS INTEGER) DESC, julianday(created_at) DESC, rowid DESC").all().map(row);
-export const all=()=>db.prepare('SELECT * FROM announcements ORDER BY created_at,id').all().map(row);
-export function insert(r){const id=randomUUID();db.prepare('INSERT INTO announcements(id,created_at,'+fields.join(',')+') VALUES('+Array(13).fill('?').join(',')+')').run(id,new Date().toISOString(),...fields.map(f=>r[f]));return row(db.prepare('SELECT *, rowid AS created_order FROM announcements WHERE id=?').get(id));}
-export function update(id,r){const result=db.prepare('UPDATE announcements SET '+fields.map(f=>f+'=?').join(',')+',updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted=0').run(...fields.map(f=>r[f]),id);return result.changes?row(db.prepare('SELECT * FROM announcements WHERE id=?').get(id)):null;}
-export const remove=id=>db.prepare('UPDATE announcements SET deleted=1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted=0').run(id).changes;
-db.exec('BEGIN IMMEDIATE');
-try{
- if(!db.prepare("SELECT name FROM app_migrations WHERE name='sample-v1'").get()){
-  for(const [no,date,subject,amount,department] of [['902','2026-10-02','ข้อมูลตัวอย่าง: จัดซื้ออุปกรณ์สำนักงาน',12500,'หน่วยงานตัวอย่าง A'],['901','2026-10-01','ข้อมูลตัวอย่าง: ซ่อมบำรุงอุปกรณ์',4800,'หน่วยงานตัวอย่าง B'],['',null,'ข้อมูลตัวอย่าง: รายการรอออกเลข',null,'หน่วยงานตัวอย่าง C']]) insert({announcement_no:no,announcement_date:date,subject,amount,budget_year:2570,department,project_no:null,note:'ไม่ใช่ Master จริง',inventory_no:null,inventory_date:null,status:'ข้อมูลทดสอบ'});
-  db.prepare('INSERT INTO app_migrations(name) VALUES(?)').run('sample-v1');
- }
- db.exec('COMMIT');
-}catch(e){db.exec('ROLLBACK');throw e;}
-export const close=()=>db.close();
+const columns=sql.raw('id,'+fields.join(',')+',deleted,created_at,updated_at,created_order');
+const rows=async query=>(await db.execute(query)).rows.map(r=>({...r,created_order:Number(r.created_order)}));
+export const list=()=>rows(sql`SELECT ${columns} FROM announcements WHERE deleted=false ORDER BY COALESCE(NULLIF(announcement_no,''),'0')::bigint DESC, created_at::timestamptz DESC, created_order DESC`);
+export const all=()=>rows(sql`SELECT ${columns} FROM announcements ORDER BY created_at::timestamptz,id`);
+export async function insert(r){return (await rows(sql`INSERT INTO announcements(id,created_at,${sql.raw(fields.join(','))}) VALUES(${randomUUID()},${new Date().toISOString()},${sql.join(fields.map(f=>sql`${r[f]}`),sql`,`)}) RETURNING ${columns}`))[0];}
+export async function update(id,r){return (await rows(sql`UPDATE announcements SET ${sql.join(fields.map(f=>sql`${sql.identifier(f)}=${r[f]}`),sql`,`)},updated_at=${new Date().toISOString()} WHERE id=${id} AND deleted=false RETURNING ${columns}`))[0]||null;}
+export async function remove(id){return (await rows(sql`UPDATE announcements SET deleted=true,updated_at=${new Date().toISOString()} WHERE id=${id} AND deleted=false RETURNING id`)).length;}
+export const close=()=>pool.end();
