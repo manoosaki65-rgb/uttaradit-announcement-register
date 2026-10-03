@@ -236,10 +236,6 @@ function App() {
           <h1>ทะเบียนเลขประกาศจังหวัด</h1>
           <p>กลุ่มงานพัสดุ โรงพยาบาลอุตรดิตถ์</p>
         </div>
-        <div className='headerActions'>
-          <span className='badge'>ทุกคนเปิดดูได้</span>
-
-        </div>
       </header>
       <section className='stats'>
         <article><small>{nextToken ? 'จำนวนรายการที่โหลด' : 'จำนวนรายการ'}</small><b>{rows.length}</b><div className='pendingCount'>รอเลขจริง {rows.filter(isWaiting).length} รายการ (รวมเลขชั่วคราว)</div></article>
@@ -287,7 +283,7 @@ function App() {
         {loading && <p className='tableInfo'>กำลังโหลดข้อมูล...</p>}
         {nextToken && <div className='loadMore'><button disabled={loading} onClick={() => { void loadRows(nextToken); }}>โหลดรายการเพิ่มเติม</button></div>}
       </section>
-      <footer>ทะเบียนเลขประกาศจังหวัด · เปิดดูได้ทุกคน · เพิ่มและแก้ไขได้ทันที</footer>
+      <footer>ทะเบียนเลขประกาศจังหวัด · กลุ่มงานพัสดุ โรงพยาบาลอุตรดิตถ์</footer>
       {formOpen && (
         <div className='modalBackdrop' role='presentation' onMouseDown={event => { if (event.target === event.currentTarget && !saving) setFormOpen(false); }}>
           <section className='formModal' role='dialog' aria-modal='true' aria-labelledby='formTitle'>
