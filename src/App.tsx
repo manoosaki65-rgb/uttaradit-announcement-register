@@ -238,13 +238,13 @@ function App() {
         </div>
       </header>
       <section className='stats'>
-        <article><small>{nextToken ? 'จำนวนรายการที่โหลด' : 'จำนวนรายการ'}</small><b>{rows.length}</b><div className='pendingCount'>รอออกเลข {rows.filter(isWaiting).length} รายการ</div></article>
+        <article><small>{nextToken ? 'จำนวนรายการที่โหลด' : 'จำนวนรายการ'}</small><b>{rows.length}</b>{rows.filter(isWaiting).length > 0 && <div className='pendingCount'>รอออกเลข {rows.filter(isWaiting).length} รายการ</div>}</article>
         <article><small>วงเงินรวม{nextToken ? ' (รายการที่โหลด)' : ''}</small><b>{money(total)} ฿</b></article>
         <article><small>เลขประกาศล่าสุดที่แสดง</small><b>{rows.find(r => r.announcement_no && !isPlaceholder(r))?.announcement_no || '-'}</b></article>
       </section>
       <section className='panel'>
         <div className='tools'>
-          <div><h2>รายการเลขประกาศ</h2><p>{editMode ? 'แก้ไขทุกช่องหรือลบรายการซ้ำ โดยยืนยันก่อนลบ' : 'เรียงเลขประกาศจากมากไปน้อย พร้อมแคปหน้าจอ · รายการรอเลขอยู่ด้านล่าง'}</p></div>
+          <div><h2>รายการเลขประกาศ</h2></div>
           <div className='toolActions'>
             <input aria-label='ค้นหา' value={q} onChange={e => setQ(e.target.value)} placeholder='ค้นหาเลขประกาศ / เรื่อง / Inventory...' />
             {editMode && <button className='primaryButton' type='button' onClick={() => { void startAdd(); }}>+ เพิ่มรายการ</button>}
@@ -271,7 +271,7 @@ function App() {
                   <td>{r.inventory_date ? thaiDate(r.inventory_date) : '-'}</td>
                   <td>{r.department || '-'}</td>
                   <td>{r.project_no || '-'}</td>
-                  <td>{isWaiting(r) ? <><span className='pendingBadge'>{isPlaceholder(r) ? 'ออกเลขแล้ว' : 'รอออกเลข'}</span>{r.status ? <span>{' ' + r.status}</span> : null}</> : r.status || '-'}</td>
+                  <td>{isWaiting(r) ? <><span className='pendingBadge'>รอออกเลข</span>{r.status ? <span>{' ' + r.status}</span> : null}</> : r.status || 'ออกเลขแล้ว'}</td>
                   <td>{r.note || '-'}</td>
                   {editMode && <td className='actionsCell'><button type='button' className='editButton compactAction' aria-label='แก้ไขรายการ' title='แก้ไข' onClick={() => { void startEdit(r); }}>✎</button><button type='button' className='cancelButton compactAction' aria-label='ลบรายการ' title='ลบ' disabled={Boolean(deletingId)} onClick={() => { void startDelete(r); }}>{deletingId === r.id ? '…' : '×'}</button></td>}
                 </tr>
