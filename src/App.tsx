@@ -75,7 +75,7 @@ const thaiDate = (s: string) => {
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 const money = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const isPlaceholder = (r: Row) => !r.id.startsWith('seed-') && !r.source_key && (r.announcement_no === '000' || r.announcement_no === '001');
+const isPlaceholder = (_r: Row) => false;
 const isWaiting = (r: Row) => !r.announcement_no || isPlaceholder(r);
 function mergeRows(saved: Row[]): Row[] {
   const overridden = new Set(saved.map(r => r.source_key).filter(Boolean));
@@ -238,7 +238,7 @@ function App() {
         </div>
       </header>
       <section className='stats'>
-        <article><small>{nextToken ? 'จำนวนรายการที่โหลด' : 'จำนวนรายการ'}</small><b>{rows.length}</b><div className='pendingCount'>รอเลขจริง {rows.filter(isWaiting).length} รายการ (รวมเลขชั่วคราว)</div></article>
+        <article><small>{nextToken ? 'จำนวนรายการที่โหลด' : 'จำนวนรายการ'}</small><b>{rows.length}</b><div className='pendingCount'>รอออกเลข {rows.filter(isWaiting).length} รายการ</div></article>
         <article><small>วงเงินรวม{nextToken ? ' (รายการที่โหลด)' : ''}</small><b>{money(total)} ฿</b></article>
         <article><small>เลขประกาศล่าสุดที่แสดง</small><b>{rows.find(r => r.announcement_no && !isPlaceholder(r))?.announcement_no || '-'}</b></article>
       </section>
@@ -261,7 +261,7 @@ function App() {
             <tbody>
               {filtered.map(r => (
                 <tr key={r.id} className={isWaiting(r) ? 'pendingRow' : ''}>
-                  <td>{r.announcement_no ? <><strong>{r.announcement_no}</strong>{isPlaceholder(r) && <span className='pendingBadge'>เลขชั่วคราว</span>}</> : <span className='pendingBadge'>รอออกเลข</span>}</td>
+                  <td>{r.announcement_no ? <><strong>{r.announcement_no}</strong>{isPlaceholder(r) && <span className='pendingBadge'>ออกเลขแล้ว</span>}</> : <span className='pendingBadge'>รอออกเลข</span>}</td>
                   
                   <td>{thaiDate(r.announcement_date)}</td>
                   <td className='subject'>{r.subject}</td>
@@ -271,7 +271,7 @@ function App() {
                   <td>{r.inventory_date ? thaiDate(r.inventory_date) : '-'}</td>
                   <td>{r.department || '-'}</td>
                   <td>{r.project_no || '-'}</td>
-                  <td>{isWaiting(r) ? <><span className='pendingBadge'>{isPlaceholder(r) ? 'รอเลขจริง' : 'รอออกเลข'}</span>{r.status ? <span>{' ' + r.status}</span> : null}</> : r.status || '-'}</td>
+                  <td>{isWaiting(r) ? <><span className='pendingBadge'>{isPlaceholder(r) ? 'ออกเลขแล้ว' : 'รอออกเลข'}</span>{r.status ? <span>{' ' + r.status}</span> : null}</> : r.status || '-'}</td>
                   <td>{r.note || '-'}</td>
                   {editMode && <td className='actionsCell'><button type='button' className='editButton compactAction' aria-label='แก้ไขรายการ' title='แก้ไข' onClick={() => { void startEdit(r); }}>✎</button><button type='button' className='cancelButton compactAction' aria-label='ลบรายการ' title='ลบ' disabled={Boolean(deletingId)} onClick={() => { void startDelete(r); }}>{deletingId === r.id ? '…' : '×'}</button></td>}
                 </tr>
