@@ -4,3 +4,7 @@ dist/
 backups/
 migration-status.md
 
+
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

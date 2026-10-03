@@ -260,6 +260,7 @@ function App() {
         <article><small>เลขประกาศล่าสุดที่แสดง</small><b>{rows.find(r => r.announcement_no && !isPlaceholder(r))?.announcement_no || '-'}</b></article>
       </section>
       <section className='panel'>
+        <p className='notice' role='note'>ระบบทดลองฟรี · ข้อมูลตัวอย่างเท่านั้น · ข้อมูลที่เพิ่มหรือแก้ไขจะหายเมื่อ Render พักตัว รีสตาร์ต หรือ deploy ใหม่ <a href='/api/export' download>ดาวน์โหลดข้อมูลสำรอง</a></p>
         <div className='tools'>
           <div><h2>รายการเลขประกาศ</h2><p>{editMode ? 'โหมดแก้ไข: แก้ไขทุกช่องหรือลบรายการซ้ำ โดยยืนยันก่อนลบ' : 'เรียงเลขประกาศจากมากไปน้อย พร้อมแคปหน้าจอ · รายการรอเลขอยู่ด้านล่าง'}</p></div>
           <div className='toolActions'>
