@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { api, auth } from './api';
+import { api } from './api';
 import { compareAnnouncements } from '../ordering.js';
 
 type Row = {
@@ -41,7 +41,6 @@ type FormData = {
   status: string;
 };
 
-type SignedInUser = { userId: string; name?: string; email?: string };
 const seedData: Omit<Row, 'id'>[] = [];
 const seeds: Row[] = seedData.map(r => ({ ...r, id: 'seed-' + r.announcement_date.slice(0, 4) + '-' + r.announcement_no }));
 const emptyForm = (): FormData => ({
@@ -86,9 +85,8 @@ function mergeRows(saved: Row[]): Row[] {
 function App() {
   const [saved, setSaved] = useState<Row[]>([]);
   const [nextToken, setNextToken] = useState<string | null>(null);
-  const [user, setUser] = useState<SignedInUser | null>(null);
   const [q, setQ] = useState('');
-  const [editMode, setEditMode] = useState(false);
+  const editMode = true;
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState('');
   const [editing, setEditing] = useState<Row | null>(null);
@@ -99,7 +97,6 @@ function App() {
   const [inventoryMessage, setInventoryMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
   const [message, setMessage] = useState('');
 
   async function loadRows(token?: string) {
@@ -118,7 +115,6 @@ function App() {
   }
   useEffect(() => {
     void loadRows();
-    if (auth.isSignedIn()) void auth.getUser().then(value => setUser(value)).catch(() => setUser(null));
   }, []);
   const rows = useMemo(() => mergeRows(saved), [saved]);
   useEffect(() => {
@@ -155,25 +151,7 @@ function App() {
   );
   const total = rows.reduce((sum, r) => sum + (r.amount || 0), 0);
 
-  async function ensureSignedIn(): Promise<boolean> {
-    if (user) return true;
-    setSigningIn(true);
-    setMessage('');
-    try {
-      const result = await auth.signIn();
-      setUser(result.user);
-      return true;
-    } catch (e) {
-      const code = (e as { code?: string }).code;
-      if (code === 'popup_blocked') setMessage('เบราว์เซอร์บล็อกหน้าต่างเข้าสู่ระบบ กรุณาอนุญาต Pop-up แล้วลองใหม่');
-      else if (code !== 'popup_closed') setMessage('เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่');
-      return false;
-    } finally {
-      setSigningIn(false);
-    }
-  }
   async function startAdd() {
-    if (!await ensureSignedIn()) return;
     setEditing(null);
     setInventoryQuery(''); setInventoryMessage('');
     setForm(emptyForm());
@@ -182,7 +160,6 @@ function App() {
     setFormOpen(true);
   }
   async function startEdit(r: Row) {
-    if (!await ensureSignedIn()) return;
     setEditing(r);
     setInventoryQuery(''); setInventoryMessage('');
     setForm(formFromRow(r));
@@ -191,7 +168,6 @@ function App() {
     setFormOpen(true);
   }
   async function startDelete(r: Row) {
-    if (!await ensureSignedIn()) return;
     if (!window.confirm('ยืนยันลบรายการ: ' + (r.announcement_no || 'รอเลข') + ' — ' + r.subject + ' ?')) return;
     setDeletingId(r.id);
     setMessage('');
@@ -262,15 +238,7 @@ function App() {
         </div>
         <div className='headerActions'>
           <span className='badge'>ทุกคนเปิดดูได้</span>
-          {user ? (
-            <button className='headerButton' type='button' onClick={() => { void auth.signOut().then(() => setUser(null)); }}>
-              ออกจากระบบ ({user.name || user.email || 'ผู้แก้ไข'})
-            </button>
-          ) : (
-            <button className='headerButton' type='button' disabled={signingIn} onClick={() => { void ensureSignedIn(); }}>
-              {signingIn ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบเพื่อเพิ่ม / แก้ไข'}
-            </button>
-          )}
+
         </div>
       </header>
       <section className='stats'>
@@ -284,7 +252,6 @@ function App() {
           <div><h2>รายการเลขประกาศ</h2><p>{editMode ? 'โหมดแก้ไข: แก้ไขทุกช่องหรือลบรายการซ้ำ โดยยืนยันก่อนลบ' : 'เรียงเลขประกาศจากมากไปน้อย พร้อมแคปหน้าจอ · รายการรอเลขอยู่ด้านล่าง'}</p></div>
           <div className='toolActions'>
             <input aria-label='ค้นหา' value={q} onChange={e => setQ(e.target.value)} placeholder='ค้นหาเลขประกาศ / เรื่อง / Inventory...' />
-            <button className='editButton' type='button' aria-pressed={editMode} onClick={() => setEditMode(value => !value)}>{editMode ? '✓ เสร็จสิ้นการแก้ไข' : '✎ โหมดแก้ไข'}</button>
             {editMode && <button className='primaryButton' type='button' onClick={() => { void startAdd(); }}>+ เพิ่มรายการ</button>}
           </div>
         </div>
@@ -358,6 +325,7 @@ function App() {
   );
 }
 export default App;
+
 
 
 
