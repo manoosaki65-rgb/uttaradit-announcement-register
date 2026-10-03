@@ -249,7 +249,7 @@ function App() {
       <section className='panel'>
         <p className='notice' role='note'>ระบบทดลองฟรี · ข้อมูลตัวอย่างเท่านั้น · บันทึกข้อมูลถาวรบน Neon Free <a href='/api/export' download>ดาวน์โหลดข้อมูลสำรอง</a></p>
         <div className='tools'>
-          <div><h2>รายการเลขประกาศ</h2><p>{editMode ? 'โหมดแก้ไข: แก้ไขทุกช่องหรือลบรายการซ้ำ โดยยืนยันก่อนลบ' : 'เรียงเลขประกาศจากมากไปน้อย พร้อมแคปหน้าจอ · รายการรอเลขอยู่ด้านล่าง'}</p></div>
+          <div><h2>รายการเลขประกาศ</h2><p>{editMode ? 'แก้ไขทุกช่องหรือลบรายการซ้ำ โดยยืนยันก่อนลบ' : 'เรียงเลขประกาศจากมากไปน้อย พร้อมแคปหน้าจอ · รายการรอเลขอยู่ด้านล่าง'}</p></div>
           <div className='toolActions'>
             <input aria-label='ค้นหา' value={q} onChange={e => setQ(e.target.value)} placeholder='ค้นหาเลขประกาศ / เรื่อง / Inventory...' />
             {editMode && <button className='primaryButton' type='button' onClick={() => { void startAdd(); }}>+ เพิ่มรายการ</button>}
@@ -287,7 +287,7 @@ function App() {
         {loading && <p className='tableInfo'>กำลังโหลดข้อมูล...</p>}
         {nextToken && <div className='loadMore'><button disabled={loading} onClick={() => { void loadRows(nextToken); }}>โหลดรายการเพิ่มเติม</button></div>}
       </section>
-      <footer>ทะเบียนเลขประกาศจังหวัด · เปิดดูได้ทุกคน · กดโหมดแก้ไขเมื่อต้องการปรับข้อมูล</footer>
+      <footer>ทะเบียนเลขประกาศจังหวัด · เปิดดูได้ทุกคน · เพิ่มและแก้ไขได้ทันที</footer>
       {formOpen && (
         <div className='modalBackdrop' role='presentation' onMouseDown={event => { if (event.target === event.currentTarget && !saving) setFormOpen(false); }}>
           <section className='formModal' role='dialog' aria-modal='true' aria-labelledby='formTitle'>
@@ -325,8 +325,3 @@ function App() {
   );
 }
 export default App;
-
-
-
-
-
