@@ -234,7 +234,7 @@ function App() {
       <header>
         <div>
           <h1>ทะเบียนเลขประกาศจังหวัด</h1>
-          <p>กลุ่มงานพัสดุ โรงพยาบาลอุตรดิตถ์ · ระบบทดลอง Render · ข้อมูลตัวอย่างเท่านั้น ไม่ใช่ Master จริง</p>
+          <p>กลุ่มงานพัสดุ โรงพยาบาลอุตรดิตถ์</p>
         </div>
         <div className='headerActions'>
           <span className='badge'>ทุกคนเปิดดูได้</span>
@@ -247,7 +247,6 @@ function App() {
         <article><small>เลขประกาศล่าสุดที่แสดง</small><b>{rows.find(r => r.announcement_no && !isPlaceholder(r))?.announcement_no || '-'}</b></article>
       </section>
       <section className='panel'>
-        <p className='notice' role='note'>ระบบทดลองฟรี · ข้อมูลตัวอย่างเท่านั้น · บันทึกข้อมูลถาวรบน Neon Free <a href='/api/export' download>ดาวน์โหลดข้อมูลสำรอง</a></p>
         <div className='tools'>
           <div><h2>รายการเลขประกาศ</h2><p>{editMode ? 'แก้ไขทุกช่องหรือลบรายการซ้ำ โดยยืนยันก่อนลบ' : 'เรียงเลขประกาศจากมากไปน้อย พร้อมแคปหน้าจอ · รายการรอเลขอยู่ด้านล่าง'}</p></div>
           <div className='toolActions'>
