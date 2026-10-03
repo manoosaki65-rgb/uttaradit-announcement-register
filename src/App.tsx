@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api, auth } from './api';
+import { compareAnnouncements } from '../ordering.js';
 
 type Row = {
   id: string;
@@ -17,6 +18,8 @@ type Row = {
   status: string | null;
   source_key?: string | null;
   updated_at?: string;
+  created_at?: string;
+  created_order?: number;
   deleted?: boolean;
   sort_date?: string;
   sort_no?: string;
@@ -78,24 +81,7 @@ const isWaiting = (r: Row) => !r.announcement_no || isPlaceholder(r);
 function mergeRows(saved: Row[]): Row[] {
   const overridden = new Set(saved.map(r => r.source_key).filter(Boolean));
   return [...saved.filter(r => !r.deleted), ...seeds.filter(r => !overridden.has(r.id.slice(5)))]
-    .sort((a, b) => {
-      // Numbered announcements are always sorted by current number, highest first.
-      // Editing another field does not move a row; changing its number places it
-      // at the correct numeric position. Drafts and temporary numbers stay last.
-      const aWaiting = isWaiting(a);
-      const bWaiting = isWaiting(b);
-      if (aWaiting !== bWaiting) return aWaiting ? 1 : -1;
-      if (aWaiting && bWaiting) {
-        const aOriginal = a.sort_time || a.updated_at || '';
-        const bOriginal = b.sort_time || b.updated_at || '';
-        return bOriginal.localeCompare(aOriginal) || a.id.localeCompare(b.id);
-      }
-      const aYear = Number(a.announcement_date.slice(0, 4)) || 0;
-      const bYear = Number(b.announcement_date.slice(0, 4)) || 0;
-      return bYear - aYear ||
-        Number(b.announcement_no) - Number(a.announcement_no) ||
-        a.id.localeCompare(b.id);
-    });
+    .sort(compareAnnouncements);
 }
 function App() {
   const [saved, setSaved] = useState<Row[]>([]);
@@ -339,5 +325,6 @@ function App() {
   );
 }
 export default App;
+
 
 
