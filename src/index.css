@@ -144,7 +144,14 @@ footer {
 .editButton { background: #ecf6ee; color: #11643a; border: 1px solid #b7d5c0; border-radius: 8px; padding: 7px 12px; font: inherit; font-weight: 700; cursor: pointer; }
 .editButton:hover { background: #d9ecdf; }
 .pendingBadge { display: inline-block; border-radius: 999px; background: #fff1cf; color: #845b12; font-size: 13px; font-weight: 800; padding: 5px 9px; white-space: nowrap; margin-left: 5px; }
-.tableWrap td:nth-child(2), .tableWrap th:nth-child(2) { position: sticky; left: 0; z-index: 1; background: #f3faf5; white-space: nowrap; }
+.tableWrap th:first-child, .tableWrap td:first-child { white-space: nowrap; }
+.actionsCell { white-space: nowrap; min-width: 82px; }
+.compactAction { min-width: 34px; padding: 6px 8px; margin-right: 5px; }
+@media (max-width: 720px) {
+  table { min-width: 1180px; }
+  th, td { padding: 9px 8px; }
+  .subject { min-width: 260px; }
+}
 .pendingRow { background: #fffdf5; }
 .pendingCount { margin-top: 5px; color: #856318; font-size: 14px; font-weight: 700; }
 .notice { margin: 12px 20px; padding: 12px 15px; border-radius: 9px; font-weight: 600; }
