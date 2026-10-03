@@ -259,14 +259,14 @@ function App() {
         <div className='tableWrap'>
           <table>
             <thead><tr>
-              <th>เลขประกาศ</th>{editMode && <th>แก้ไข / ลบ</th>}<th>วันที่</th><th>เรื่อง</th><th>วงเงิน (บาท)</th><th>ปีงบ</th>
-              <th>Inventory</th><th>วันที่รับ</th><th>หน่วยงาน</th><th>เลขโครงการ</th><th>สถานะ</th><th>หมายเหตุ</th>
+              <th>เลขประกาศ</th><th>วันที่</th><th>เรื่อง</th><th>วงเงิน (บาท)</th><th>ปีงบ</th>
+              <th>Inventory</th><th>วันที่รับ</th><th>หน่วยงาน</th><th>เลขโครงการ</th><th>สถานะ</th><th>หมายเหตุ</th>{editMode && <th>จัดการ</th>}
             </tr></thead>
             <tbody>
               {filtered.map(r => (
                 <tr key={r.id} className={isWaiting(r) ? 'pendingRow' : ''}>
                   <td>{r.announcement_no ? <><strong>{r.announcement_no}</strong>{isPlaceholder(r) && <span className='pendingBadge'>เลขชั่วคราว</span>}</> : <span className='pendingBadge'>รอออกเลข</span>}</td>
-                  {editMode && <td><button type='button' className='editButton' onClick={() => { void startEdit(r); }}>✎ แก้ไข</button> <button type='button' className='cancelButton' disabled={Boolean(deletingId)} onClick={() => { void startDelete(r); }}>{deletingId === r.id ? 'กำลังลบ...' : 'ลบ'}</button></td>}
+                  
                   <td>{thaiDate(r.announcement_date)}</td>
                   <td className='subject'>{r.subject}</td>
                   <td className='num'>{r.amount == null ? '-' : money(r.amount)}</td>
@@ -277,6 +277,7 @@ function App() {
                   <td>{r.project_no || '-'}</td>
                   <td>{isWaiting(r) ? <><span className='pendingBadge'>{isPlaceholder(r) ? 'รอเลขจริง' : 'รอออกเลข'}</span>{r.status ? <span>{' ' + r.status}</span> : null}</> : r.status || '-'}</td>
                   <td>{r.note || '-'}</td>
+                  {editMode && <td className='actionsCell'><button type='button' className='editButton compactAction' aria-label='แก้ไขรายการ' title='แก้ไข' onClick={() => { void startEdit(r); }}>✎</button><button type='button' className='cancelButton compactAction' aria-label='ลบรายการ' title='ลบ' disabled={Boolean(deletingId)} onClick={() => { void startDelete(r); }}>{deletingId === r.id ? '…' : '×'}</button></td>}
                 </tr>
               ))}
               {!loading && filtered.length === 0 && <tr><td colSpan={editMode ? 12 : 11} className='empty'>ไม่พบรายการที่ค้นหา</td></tr>}
