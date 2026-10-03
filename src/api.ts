@@ -1,0 +1,14 @@
+async function request(method: string, url: string, body?: unknown) {
+ const r = await fetch(url, {method, credentials:'same-origin', headers:{'Content-Type':'application/json'}, ...(body !== undefined ? {body:JSON.stringify(body)} : {})});
+ const data = await r.json();
+ if (!r.ok) throw {response:{data}};
+ return {data};
+}
+export const api = {get:(u:string)=>request('GET',u), post:(u:string,b:unknown)=>request('POST',u,b), put:(u:string,b:unknown)=>request('PUT',u,b), delete:(u:string)=>request('DELETE',u)};
+export const auth = {
+ isSignedIn:()=>true,
+ getUser:async()=> (await request('GET','/api/session')).data.user,
+ signIn:async()=> {const password=window.prompt('รหัสผู้แก้ไขสำหรับระบบทดลอง Render'); if(password === null) throw {code:'popup_closed'}; const r=await request('POST','/api/session',{password}); return r.data;},
+ signOut:async()=>{await request('DELETE','/api/session');}
+};
+
