@@ -16,17 +16,44 @@ function parse(b){const r={};for(const f of fields)r[f]=b?.[f]??null;
  if(r.announcement_no&&!r.announcement_date)throw Error('กรุณาระบุวันที่ประกาศ');
  for(const f of ['amount','budget_year']){r[f]=r[f]===null||r[f]===''?null:Number(r[f]);if(r[f]!==null&&(!Number.isFinite(r[f])||r[f]<0))throw Error('ตัวเลขไม่ถูกต้อง');}
  if(r.amount>999999999999)throw Error('วงเงินเกินกำหนด');if(r.budget_year!==null&&(!Number.isInteger(r.budget_year)||r.budget_year<2400||r.budget_year>2700))throw Error('ปีงบประมาณไม่ถูกต้อง');return r;}
+
+async function syncMaster(action,item){
+ const url=process.env.MASTER_SYNC_URL;
+ if(!url)return {ok:false,skipped:true};
+ let lastError='';
+ for(let attempt=1;attempt<=3;attempt++){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),8000);
+  try{
+   const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:process.env.MASTER_SYNC_TOKEN||'',system:'announcement',action,item}),signal:controller.signal,redirect:'follow'});
+   const body=await response.text();
+   clearTimeout(timer);
+   if(response.ok)return {ok:true};
+   lastError=`HTTP ${response.status}: ${body.slice(0,180)}`;
+  }catch(e){clearTimeout(timer);lastError=String(e?.message||e);}
+  if(attempt<3)await new Promise(r=>setTimeout(r,250*attempt));
+ }
+ console.error('Master sync failed:',lastError);
+ return {ok:false,error:lastError};
+}
+
 app.get('/api/announcements',async(req,res)=>res.json({items:await list(),nextToken:null}));
 app.get('/api/export',async(req,res)=>{res.set('Content-Disposition','attachment; filename=announcement-test-backup.json');res.json({environment:'sample-test',exported_at:new Date().toISOString(),items:await all()});});
-app.post('/api/announcements',async(req,res)=>{let r;try{r=parse(req.body);}catch(e){return res.status(400).json({error:e.message});}res.status(201).json({item:await insert(r)});});
-app.put('/api/announcements/:id',async(req,res)=>{let r;try{r=parse(req.body);}catch(e){return res.status(400).json({error:e.message});}const item=await update(req.params.id,r);if(!item)return res.status(404).json({error:'ไม่พบรายการ'});res.json({item});});
+app.post('/api/announcements',async(req,res)=>{
+ let r;try{r=parse(req.body);}catch(e){return res.status(400).json({error:e.message});}
+ const item=await insert(r);
+ const master=await syncMaster('upsert',item);
+ res.status(201).json({item,master_sync:master.ok,master_warning:master.ok?null:'บันทึกทะเบียนแล้ว แต่ Master Google Sheet ยังไม่ซิงก์'});
+});
+app.put('/api/announcements/:id',async(req,res)=>{
+ let r;try{r=parse(req.body);}catch(e){return res.status(400).json({error:e.message});}
+ const item=await update(req.params.id,r);if(!item)return res.status(404).json({error:'ไม่พบรายการ'});
+ const master=await syncMaster('upsert',item);
+ res.json({item,master_sync:master.ok,master_warning:master.ok?null:'แก้ไขทะเบียนแล้ว แต่ Master Google Sheet ยังไม่ซิงก์'});
+});
 app.delete('/api/announcements/:id',async(req,res)=>{if(!await remove(req.params.id))return res.status(404).json({error:'ไม่พบรายการ'});res.json({ok:true});});
 app.use('/api',(req,res)=>res.status(404).json({error:'ไม่พบเส้นทาง'}));
 app.use(express.static('dist'));
 app.use((err,req,res,next)=>{console.error(err.code||err.message);res.status((err.code||err.cause?.code)==='23505'?409:err.code==='22P02'?400:500).json({error:(err.code||err.cause?.code)==='23505'?'เลขประกาศซ้ำในปีเดียวกัน':'ไม่สามารถบันทึกข้อมูลได้'});});
 const server=app.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('Announcement test service listening'));
 process.on('SIGTERM',()=>server.close(()=>{close().finally(()=>process.exit(0));}));
-
-
-
-
