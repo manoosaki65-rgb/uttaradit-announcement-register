@@ -8,18 +8,34 @@ const CONTRACT_SHEET = 'สัญญา 70';
 const ANNOUNCEMENT_DATA_SHEET = 'WEB_ประกาศ_70';
 const CONTRACT_DATA_SHEET = 'WEB_สัญญา_70';
 
+// This handler is named doPostLegacy in the existing shared Apps Script project.
+// Keep its existing posting dispatcher and all posting functions when applying this file.
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(25000);
+    return syncMasterRequest_(e);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(error.message||error)}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    if (lock.hasLock()) lock.releaseLock();
+  }
+}
+
+function syncMasterRequest_(e) {
   const payload = JSON.parse((e && e.postData && e.postData.contents) || '{}');
   const expected = PropertiesService.getScriptProperties().getProperty('SYNC_TOKEN');
   if (!expected || payload.token !== expected) throw new Error('Unauthorized');
-  if (!payload.item || !payload.system) throw new Error('Missing payload');
+  if (!payload.item || !payload.system || !String(payload.item.id||'')) throw new Error('Missing payload');
 
   const ss = SpreadsheetApp.openById(MASTER_SPREADSHEET_ID);
+  let receipt = {};
   if (payload.system === 'announcement') {
+    receipt = syncAnnouncementPrint_(ss.getSheetByName(ANNOUNCEMENT_SHEET), payload.item);
     upsertDataSheet_(ss, ANNOUNCEMENT_DATA_SHEET,
       ['id','เลขประกาศ','วันที่','เรื่อง','วงเงิน','ปีงบประมาณ','เลขที่โครงการ','หมายเหตุ','Inventory','วันที่รับ','หน่วยงาน','สถานะ'],
       announcementRow_(payload.item));
-    syncAnnouncementPrint_(ss.getSheetByName(ANNOUNCEMENT_SHEET), payload.item);
   } else if (payload.system === 'contract') {
     upsertDataSheet_(ss, CONTRACT_DATA_SHEET,
       ['id','เลขที่สัญญา','ปีงบประมาณ','วันที่สัญญา','รายการ','ผู้ขาย/ผู้รับจ้าง','วงเงิน','Inventory','เจ้าหน้าที่/หน่วยงาน','แหล่งเงิน','หมายเหตุ'],
@@ -30,7 +46,7 @@ function doPost(e) {
   }
 
   SpreadsheetApp.flush();
-  return ContentService.createTextOutput(JSON.stringify({ok:true,system:payload.system,id:String(payload.item.id||'')}))
+  return ContentService.createTextOutput(JSON.stringify({ok:true,system:payload.system,id:String(payload.item.id||''),...receipt}))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -63,13 +79,15 @@ function upsertDataSheet_(ss, name, headers, row) {
 }
 
 function syncAnnouncementPrint_(sh, x) {
-  if (!sh) return;
+  if (!sh) throw new Error('Missing announcement sheet');
   const id = String(x.id||'');
   const starts = [];
-  for (let r=4;r<=sh.getMaxRows();r+=7) starts.push(r);
+  for (let r=4;r<=Math.min(sh.getLastRow()-3,sh.getMaxRows()-3);r+=7) {
+    if (sh.getRange(r,3).getDisplayValue() === 'เลขที่') starts.push(r);
+  }
   let start = findByNote_(sh, starts, 4, id);
   if (!start) start = findAnnouncementBlank_(sh, starts);
-  if (!start) return; // full formatted page: data is still safely kept in WEB_ประกาศ_70
+  if (!start) throw new Error('No empty announcement block; existing data preserved');
 
   const year = x.budget_year || 2570;
   sh.getRange(start,4).setValue(`${x.announcement_no||''}/${year}  ลงวันที่`).setNote('web_id:'+id);
@@ -78,6 +96,17 @@ function syncAnnouncementPrint_(sh, x) {
   sh.getRange(start+2,4).setValue(x.amount==null?'':Number(x.amount)).setNumberFormat('#,##0.00');
   sh.getRange(start+3,4).setValue(x.project_no||'');
   sh.getRange(start+3,6).setValue(x.department||'');
+  SpreadsheetApp.flush();
+  if (sh.getRange(start,4).getNote() !== 'web_id:'+id ||
+      sh.getRange(start,4).getValue() !== `${x.announcement_no||''}/${year}  ลงวันที่` ||
+      sh.getRange(start,5).getValue() !== thaiDate_(x.announcement_date) ||
+      sh.getRange(start+1,4).getValue() !== (x.subject||'') ||
+      sh.getRange(start+2,4).getValue() !== (x.amount==null?'':Number(x.amount)) ||
+      sh.getRange(start+3,4).getValue() !== (x.project_no||'') ||
+      sh.getRange(start+3,6).getValue() !== (x.department||'')) {
+    throw new Error('Announcement readback failed');
+  }
+  return {verified:true,spreadsheet_id:MASTER_SPREADSHEET_ID,sheet:ANNOUNCEMENT_SHEET,row:start};
 }
 
 function syncContractPrint_(sh, x) {
@@ -111,7 +140,8 @@ function findAnnouncementBlank_(sh, starts) {
   for (const start of starts) {
     const note = sh.getRange(start,4).getNote();
     const v = sh.getRange(start,4).getDisplayValue();
-    if (!note && (!v || v.indexOf('…………') >= 0)) return start;
+    const values = [v,...sh.getRange(start+1,4,3,1).getDisplayValues().map(row=>row[0]),sh.getRange(start+3,6).getDisplayValue()];
+    if (!note && values.every(value=>!value || /^[\s.…/\dลงวันที่]+$/.test(value) && /[.…]/.test(value))) return start;
   }
   return 0;
 }

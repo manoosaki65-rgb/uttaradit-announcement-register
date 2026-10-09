@@ -216,11 +216,14 @@ function App() {
     };
     setSaving(true);
     try {
-      if (editing) await api.put('/api/announcements/' + encodeURIComponent(editing.id), body);
-      else await api.post('/api/announcements', body);
+      const result = editing
+        ? await api.put('/api/announcements/' + encodeURIComponent(editing.id), body)
+        : await api.post('/api/announcements', body);
       setFormOpen(false);
       setEditing(null);
-      setMessage(!no ? 'บันทึกรายการรอออกเลขเรียบร้อยแล้ว' : editing?.announcement_no !== no && editing ? 'เปลี่ยนเลขประกาศเป็น ' + no + ' โดยเก็บรายการเดิมไว้เรียบร้อยแล้ว' : editing ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มรายการเลข ' + no + ' เรียบร้อยแล้ว');
+      setMessage(result.data.master_sync !== true
+        ? (result.data.master_warning || 'บันทึกทะเบียนแล้ว แต่ยังยืนยันการเขียน Master Google Sheet ไม่ได้')
+        : (!no ? 'บันทึกรายการรอออกเลขเรียบร้อยแล้ว' : editing?.announcement_no !== no && editing ? 'เปลี่ยนเลขประกาศเป็น ' + no + ' โดยเก็บรายการเดิมไว้เรียบร้อยแล้ว' : editing ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มรายการเลข ' + no + ' เรียบร้อยแล้ว') + ' — เขียน Master Google Sheet แล้ว');
       await loadRows();
     } catch (errorValue) {
       const response = errorValue as { response?: { data?: { error?: string; message?: string } } };

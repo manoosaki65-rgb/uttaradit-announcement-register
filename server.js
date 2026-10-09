@@ -19,17 +19,18 @@ function parse(b){const r={};for(const f of fields)r[f]=b?.[f]??null;
 
 async function syncMaster(action,item){
  const url=process.env.MASTER_SYNC_URL;
- if(!url)return {ok:false,skipped:true};
+ if(!url || !process.env.MASTER_SYNC_TOKEN)return {ok:false,skipped:true};
  let lastError='';
  for(let attempt=1;attempt<=3;attempt++){
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),8000);
+  const timer=setTimeout(()=>controller.abort(),30000);
   try{
    const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:process.env.MASTER_SYNC_TOKEN||'',system:'announcement',action,item}),signal:controller.signal,redirect:'follow'});
    const body=await response.text();
    clearTimeout(timer);
-   if(response.ok)return {ok:true};
-   lastError=`HTTP ${response.status}: ${body.slice(0,180)}`;
+   let receipt;try{receipt=JSON.parse(body);}catch{}
+   if(response.ok && receipt?.ok===true && receipt.system==='announcement' && receipt.id===String(item.id) && receipt.verified===true && receipt.spreadsheet_id==='1eFV9JbOBkTYeg25vyVxiiZ8MA7KadHh7EHg03fodeHQ' && receipt.sheet==='ออกเลขประกาศ 70')return {ok:true};
+   lastError=`HTTP ${response.status}: Master did not confirm a verified write`;
   }catch(e){clearTimeout(timer);lastError=String(e?.message||e);}
   if(attempt<3)await new Promise(r=>setTimeout(r,250*attempt));
  }
