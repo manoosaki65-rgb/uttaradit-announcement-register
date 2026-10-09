@@ -91,7 +91,7 @@ function syncAnnouncementPrint_(sh, x) {
 
   const year = x.budget_year || 2570;
   sh.getRange(start,4).setValue(`${x.announcement_no||''}/${year}  ลงวันที่`).setNote('web_id:'+id);
-  sh.getRange(start,5).setValue(thaiDate_(x.announcement_date));
+  sh.getRange(start,5).setNumberFormat('@').setValue(thaiDate_(x.announcement_date));
   sh.getRange(start+1,4).setValue(x.subject||'');
   sh.getRange(start+2,4).setValue(x.amount==null?'':Number(x.amount)).setNumberFormat('#,##0.00');
   sh.getRange(start+3,4).setValue(x.project_no||'');
