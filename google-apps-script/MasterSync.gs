@@ -8,8 +8,6 @@ const CONTRACT_SHEET = 'สัญญา 70';
 const ANNOUNCEMENT_DATA_SHEET = 'WEB_ประกาศ_70';
 const CONTRACT_DATA_SHEET = 'WEB_สัญญา_70';
 
-// This handler is named doPostLegacy in the existing shared Apps Script project.
-// Keep its existing posting dispatcher and all posting functions when applying this file.
 function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
@@ -40,7 +38,8 @@ function syncMasterRequest_(e) {
     upsertDataSheet_(ss, CONTRACT_DATA_SHEET,
       ['id','เลขที่สัญญา','ปีงบประมาณ','วันที่สัญญา','รายการ','ผู้ขาย/ผู้รับจ้าง','วงเงิน','Inventory','เจ้าหน้าที่/หน่วยงาน','แหล่งเงิน','หมายเหตุ'],
       contractRow_(payload.item));
-    syncContractPrint_(ss.getSheetByName(CONTRACT_SHEET), payload.item);
+    const row = syncContractPrint_(ss.getSheetByName(CONTRACT_SHEET), payload.item);
+    receipt = {verified:true,spreadsheet_id:MASTER_SPREADSHEET_ID,sheet:CONTRACT_SHEET,row};
   } else {
     throw new Error('Unknown system');
   }
@@ -110,13 +109,13 @@ function syncAnnouncementPrint_(sh, x) {
 }
 
 function syncContractPrint_(sh, x) {
-  if (!sh) return;
+  if (!sh) return 0;
   const id = String(x.id||'');
   const starts = [];
   for (let r=2;r<=sh.getMaxRows();r+=13) starts.push(r);
   let start = findByNote_(sh, starts, 3, id);
   if (!start) start = findContractBlank_(sh, starts);
-  if (!start) return; // full formatted page: data is still safely kept in WEB_สัญญา_70
+  if (!start) return 0;
 
   sh.getRange(start+1,3).setValue(x.contract_no||'').setNote('web_id:'+id);
   sh.getRange(start+1,4).setValue('ลงวันที่ '+thaiDate_(x.contract_date));
@@ -125,6 +124,7 @@ function syncContractPrint_(sh, x) {
   sh.getRange(start+8,5).setValue(x.amount==null?'':Number(x.amount)).setNumberFormat('#,##0.00');
   sh.getRange(start+10,3).setValue(x.vendor||'');
   sh.getRange(start+11,4).setValue('เจ้าหน้าที่จัดซื้อ '+String(x.buyer||''));
+  return start;
 }
 
 function findByNote_(sh, starts, valueColumn, id) {
